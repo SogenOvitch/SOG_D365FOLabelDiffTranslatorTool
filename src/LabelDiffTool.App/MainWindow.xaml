@@ -157,20 +157,21 @@
 
                 <DataGrid ItemsSource="{Binding RowsView}"
                           SelectionChanged="OnGridSelectionChanged"
+                          CellEditEnding="OnCellEditEnding"
                           AutoGenerateColumns="False"
-                          IsReadOnly="True"
                           CanUserAddRows="False"
                           GridLinesVisibility="All"
                           HeadersVisibility="Column"
                           SelectionMode="Extended"
                           SelectionUnit="FullRow">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Label ID" Binding="{Binding Id}" Width="200" />
+                        <DataGridTextColumn Header="Label ID" Binding="{Binding Id}" Width="200" IsReadOnly="True" />
+                        <!-- Source/Target are editable: double-click a cell to fix a translation. -->
                         <DataGridTextColumn Header="Source" Binding="{Binding SourceText}" Width="*"
                                             CellStyle="{StaticResource CellSource}" />
                         <DataGridTextColumn Header="Target" Binding="{Binding TargetText}" Width="*"
                                             CellStyle="{StaticResource CellTarget}" />
-                        <DataGridTextColumn Header="Status" Binding="{Binding StatusText}" Width="130" />
+                        <DataGridTextColumn Header="Status" Binding="{Binding StatusText}" Width="130" IsReadOnly="True" />
                     </DataGrid.Columns>
                 </DataGrid>
             </DockPanel>

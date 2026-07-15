@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LabelDiffTool.App.Services;
 using LabelDiffTool.Core.Comparison;
+using LabelDiffTool.Core.Models;
 using LabelDiffTool.Core.Parsing;
 using LabelDiffTool.Core.Translation;
 
@@ -447,6 +448,58 @@ public partial class MainViewModel : ObservableObject
             ? "OK — all changes saved"
             : $"OK — needs saving: {string.Join(", ", dirty)}";
     }
+
+    /// <summary>
+    /// Applies an inline cell edit to the underlying label:
+    /// <list type="bullet">
+    ///   <item>editing an existing label updates its text;</item>
+    ///   <item>clearing a label to empty removes it, so it reads as missing again and can be
+    ///         re-translated;</item>
+    ///   <item>typing into an empty cell creates the label on that side (description copied from the
+    ///         other side, per the copy rule).</item>
+    /// </list>
+    /// A manual edit clears the machine-translated flag and marks the file unsaved. Call
+    /// <see cref="RefreshComparison"/> afterwards to refresh derived state.
+    /// </summary>
+    public void ApplyCellEdit(RowViewModel row, bool editingSource, string? newText)
+    {
+        var fileVm = editingSource ? SelectedSource : SelectedTarget;
+        var counterpart = editingSource ? SelectedTarget : SelectedSource;
+        if (fileVm is null)
+            return;
+
+        var text = newText ?? string.Empty;
+        var file = fileVm.File;
+
+        if (file.TryGet(row.Id, out var entry))
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                // Emptying a label removes it → it shows as missing and can be re-translated.
+                file.Remove(row.Id);
+            }
+            else
+            {
+                if (entry.Text == text)
+                    return; // no change
+                entry.Text = text;
+                entry.IsMachineTranslated = false; // hand-edited → treat as reviewed
+                entry.IsUnsaved = true;
+            }
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return; // nothing typed into an already-missing cell
+            var description = counterpart?.File.Find(row.Id)?.Description;
+            file.AddOrReplace(new LabelEntry(row.Id, text, description, isMachineTranslated: false, isUnsaved: true));
+        }
+
+        MarkDirty(fileVm);
+    }
+
+    /// <summary>Rebuilds the diff grid (public so the view can defer it after a cell edit).</summary>
+    public void RefreshComparison() => RebuildComparison();
 
     private void RebuildComparison()
     {

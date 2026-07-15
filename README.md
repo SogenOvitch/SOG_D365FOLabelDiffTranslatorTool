@@ -3,6 +3,12 @@
 A Windows desktop tool for comparing **D365 F&O label files** side by side, spotting the labels
 missing from each side, and filling the gaps with free machine translation.
 
+## Demo
+
+![alt text](screenshots/step1.png)
+![alt text](screenshots/step2.png)
+![alt text](screenshots/step3.png)
+
 ## Features
 
 - **Open any number of files** (`*.label.txt`). A file is identified by its full path, so the same
@@ -15,10 +21,16 @@ missing from each side, and filling the gaps with free machine translation.
   manual override.
 - Translate using a **free** engine (GTranslate — Google/Bing/Yandex/Microsoft web endpoints, no API
   key). Four scopes:
-  - selected label → the side that lacks it,
-  - selected label → every other open file,
+  - selected label(s) → the side that lacks each,
+  - selected label(s) → every other open file,
   - whole file → the target,
   - whole file → every other open file.
+
+  Select multiple rows with **Ctrl/Shift-click** (like File Explorer) to translate them in one go.
+- **Edit any translation inline** — double-click a Source/Target cell (or press F2) to fix its text.
+  A hand-edit is treated as reviewed (no longer flagged machine-translated) and marks the file
+  unsaved. **Clearing a cell to empty removes that label**, so it reads as *missing* again and can be
+  re-translated — handy for redoing a bad translation from scratch.
 - **Reload** a file from disk, **Save** per file or **Save all** — always confirming each path.
 - **Unsaved-changes protection**: reloading, closing a file, or quitting the app prompts to
   save / discard / cancel when there are pending translations. The status bar shows which files

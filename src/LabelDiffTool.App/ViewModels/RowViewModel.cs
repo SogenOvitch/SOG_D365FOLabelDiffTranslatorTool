@@ -44,8 +44,10 @@ public sealed class RowViewModel
 
     public string Id { get; }
 
-    public string? SourceText { get; }
-    public string? TargetText { get; }
+    // Settable so the grid's cell editor can write the new value; the model update and refresh
+    // are handled by MainViewModel.ApplyCellEdit on commit.
+    public string? SourceText { get; set; }
+    public string? TargetText { get; set; }
     public string? SourceDescription { get; }
     public string? TargetDescription { get; }
 
