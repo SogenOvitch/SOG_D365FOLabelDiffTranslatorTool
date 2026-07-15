@@ -1,0 +1,9 @@
+;Sample D365 label file (English)
+CustAccount=Customer account
+;The customer account number
+ItemName=Item name
+;The name of the inventory item
+PostJournal=Post journal
+;Action that posts the journal
+Discount=Discount
+;Percentage discount applied to the line

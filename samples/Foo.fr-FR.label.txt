@@ -1,0 +1,7 @@
+;Sample D365 label file (French)
+CustAccount=Compte client
+;The customer account number
+ItemName=Nom d'article
+;The name of the inventory item
+Currency=Devise
+;The transaction currency

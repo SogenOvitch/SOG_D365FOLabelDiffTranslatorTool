@@ -1,0 +1,207 @@
+<Window x:Class="LabelDiffTool.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="D365 Label Diff &amp; Translate" Height="740" Width="1240"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource WindowBrush}"
+        TextElement.Foreground="{StaticResource FgBrush}"
+        TextElement.FontSize="12">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BusyToVisibility" />
+        <SolidColorBrush x:Key="MissingBrush" Color="#FF5A2A2A" />
+        <SolidColorBrush x:Key="MissingTextBrush" Color="#FFFF9A9A" />
+
+        <!-- A thin vertical divider for the top bar. -->
+        <Style x:Key="BarSeparator" TargetType="Border">
+            <Setter Property="Width" Value="1" />
+            <Setter Property="Height" Value="22" />
+            <Setter Property="Margin" Value="6,0" />
+            <Setter Property="Background" Value="{StaticResource BorderBrush}" />
+        </Style>
+
+        <!-- Highlight a cell when its side is missing the label; inherit the dark cell style otherwise. -->
+        <Style x:Key="CellSource" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding PresentInSource}" Value="False">
+                    <Setter Property="Background" Value="{StaticResource MissingBrush}" />
+                    <Setter Property="Foreground" Value="{StaticResource MissingTextBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="CellTarget" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding PresentInTarget}" Value="False">
+                    <Setter Property="Background" Value="{StaticResource MissingBrush}" />
+                    <Setter Property="Foreground" Value="{StaticResource MissingTextBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Top bar. Icon buttons carry their full text as a hover tooltip. -->
+        <Border Grid.Row="0" Background="{StaticResource ControlBrush}" BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="1" CornerRadius="3" Padding="6" IsEnabled="{Binding IsIdle}">
+            <WrapPanel Orientation="Horizontal" TextElement.FontFamily="Segoe UI Emoji">
+                <WrapPanel.Resources>
+                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                        <Setter Property="Margin" Value="2,1" />
+                        <Setter Property="MinWidth" Value="34" />
+                    </Style>
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                        <Setter Property="VerticalAlignment" Value="Center" />
+                        <Setter Property="Margin" Value="2,0" />
+                    </Style>
+                    <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+                        <Setter Property="Margin" Value="2,1" />
+                        <Setter Property="Height" Value="26" />
+                    </Style>
+                    <Style TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
+                        <Setter Property="VerticalAlignment" Value="Center" />
+                        <Setter Property="Margin" Value="6,0" />
+                    </Style>
+                </WrapPanel.Resources>
+
+                <Button Content="📂" FontSize="15" Command="{Binding AddFilesCommand}" ToolTip="Add file(s)…" />
+                <Border Style="{StaticResource BarSeparator}" />
+
+                <TextBlock Text="Source:" />
+                <ComboBox Width="190" ItemsSource="{Binding Files}" DisplayMemberPath="DisplayName"
+                          SelectedItem="{Binding SelectedSource}" />
+                <Button Content="⇄" FontSize="15" Command="{Binding SwapSourceTargetCommand}"
+                        ToolTip="Swap source and target" />
+                <TextBlock Text="Target:" />
+                <ComboBox Width="190" ItemsSource="{Binding Files}" DisplayMemberPath="DisplayName"
+                          SelectedItem="{Binding SelectedTarget}" />
+                <Border Style="{StaticResource BarSeparator}" />
+
+                <!-- Selected-label scope first -->
+                <Button Content="🏷➡" FontSize="15" Command="{Binding TranslateSelectedCommand}"
+                        ToolTip="Translate selected label(s) into the side that lacks each — Ctrl/Shift-click to select multiple rows" />
+                <Button Content="🏷⏩" FontSize="15" Command="{Binding TranslateSelectedIntoAllCommand}"
+                        ToolTip="Translate selected label(s) into all other files — Ctrl/Shift-click to select multiple rows" />
+                <Border Style="{StaticResource BarSeparator}" />
+
+                <!-- Whole-file scope -->
+                <Button Content="📄➡" FontSize="15" Command="{Binding TranslateIntoTargetCommand}"
+                        ToolTip="Translate whole file: fill labels missing in the target, using the source" />
+                <Button Content="📄⏩" FontSize="15" Command="{Binding TranslateIntoAllCommand}"
+                        ToolTip="Translate whole file: fill every other opened file from the source" />
+                <Border Style="{StaticResource BarSeparator}" />
+
+                <Button Content="💾" FontSize="15" Command="{Binding SaveAllCommand}" ToolTip="Save all changed files" />
+                <Border Style="{StaticResource BarSeparator}" />
+
+                <CheckBox Content="Gaps only" IsChecked="{Binding ShowGapsOnly}" />
+                <CheckBox Content="Needs saving only" IsChecked="{Binding ShowNeedsSavingOnly}" />
+            </WrapPanel>
+        </Border>
+
+        <!-- Main area: files list + diff -->
+        <Grid Grid.Row="1" Margin="0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="300" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Opened files. Clicking a file selects it as the target. -->
+            <GroupBox Grid.Column="0" Header="Files  (click to set as target)" Margin="0,0,8,0">
+                <ListView ItemsSource="{Binding Files}" BorderThickness="0"
+                          SelectedItem="{Binding SelectedTarget, Mode=TwoWay}">
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Border Padding="4" Margin="0,2">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding DirtyMarker}" Foreground="#FFFF6B6B"
+                                                   FontWeight="Bold" Width="12" />
+                                        <TextBlock Text="{Binding Summary}" TextTrimming="CharacterEllipsis"
+                                                   Width="240" ToolTip="{Binding DisplayName}" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="12,4,0,0" TextElement.FontFamily="Segoe UI Emoji">
+                                        <ComboBox Width="110" IsEditable="True" DisplayMemberPath="Tag"
+                                                  ItemsSource="{Binding DataContext.Languages, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                  Text="{Binding Language, UpdateSourceTrigger=PropertyChanged}" />
+                                        <Button Content="🔄" Margin="6,0,0,0" ToolTip="Reload this file from disk"
+                                                Command="{Binding DataContext.ReloadFileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" />
+                                        <Button Content="💾" Margin="4,0,0,0" ToolTip="Save this file"
+                                                Command="{Binding DataContext.SaveFileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" />
+                                        <Button Content="✕" Margin="4,0,0,0" ToolTip="Close (remove) this file"
+                                                Command="{Binding DataContext.RemoveFileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </GroupBox>
+
+            <!-- Side-by-side diff of the chosen pair -->
+            <DockPanel Grid.Column="1">
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBlock Text="Source: " FontWeight="Bold" />
+                    <TextBlock Text="{Binding SelectedSource.DisplayName, TargetNullValue='(none)'}" />
+                    <TextBlock Text="   →   Target: " FontWeight="Bold" />
+                    <TextBlock Text="{Binding SelectedTarget.DisplayName, TargetNullValue='(none)'}" />
+                </StackPanel>
+
+                <DataGrid ItemsSource="{Binding RowsView}"
+                          SelectionChanged="OnGridSelectionChanged"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          CanUserAddRows="False"
+                          GridLinesVisibility="All"
+                          HeadersVisibility="Column"
+                          SelectionMode="Extended"
+                          SelectionUnit="FullRow">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Label ID" Binding="{Binding Id}" Width="200" />
+                        <DataGridTextColumn Header="Source" Binding="{Binding SourceText}" Width="*"
+                                            CellStyle="{StaticResource CellSource}" />
+                        <DataGridTextColumn Header="Target" Binding="{Binding TargetText}" Width="*"
+                                            CellStyle="{StaticResource CellTarget}" />
+                        <DataGridTextColumn Header="Status" Binding="{Binding StatusText}" Width="130" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+        </Grid>
+
+        <!-- Status bar -->
+        <StatusBar Grid.Row="2">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}" />
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem>
+                <TextBlock Text="{Binding SaveStateMessage}">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="#FF4EC94E" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasUnsavedChanges}" Value="True">
+                                    <Setter Property="Foreground" Value="#FFE0A030" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <ProgressBar Width="220" Height="16" Minimum="0" Maximum="100"
+                             Value="{Binding ProgressValue}"
+                             Visibility="{Binding IsBusy, Converter={StaticResource BusyToVisibility}}" />
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window>
